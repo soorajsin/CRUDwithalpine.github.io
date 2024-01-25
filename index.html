@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en" x-data="app()">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRUD App</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
+</head>
+
+<body class="bg-gray-100">
+    <div class="container mx-auto p-8">
+        <form x-on:submit.prevent="submitData">
+            <div class="flex space-x-4">
+                <input type="text" x-model="form.name" placeholder="Enter name" class="border p-2 w-1/4" />
+                <input type="email" x-model="form.email" placeholder="Enter email" class="border p-2 w-1/4" />
+                <input type="tel" x-model="form.phone" placeholder="Enter phone no" class="border p-2 w-1/4" />
+                <input type="text" x-model="form.address" placeholder="Enter address" class="border p-2 w-1/4" />
+            </div>
+            <div class="flex space-x-4 mt-4">
+                <button type="button" x-on:click="submitData" class="bg-blue-500 text-white px-4 py-2 rounded">Submit
+                    Data</button>
+                <button type="button" x-show="updateKey !== null" x-on:click="updateDataForm"
+                    class="bg-yellow-500 text-white px-4 py-2 rounded">Update Data</button>
+            </div>
+        </form>
+        <table class="mt-8 w-full border">
+            <thead>
+                <tr class="bg-gray-200">
+                    <th class="border p-2">Name</th>
+                    <th class="border p-2">Email</th>
+                    <th class="border p-2">Phone No.</th>
+                    <th class="border p-2">Address</th>
+                    <th class="border p-2">Update</th>
+                    <th class="border p-2">Delete</th>
+                </tr>
+            </thead>
+            <tbody>
+                <template x-for="(item, index) in data" :key="index">
+                    <tr class="hover:bg-gray-100">
+                        <td class="border p-2" x-text="item.name"></td>
+                        <td class="border p-2" x-text="item.email"></td>
+                        <td class="border p-2" x-text="item.phone"></td>
+                        <td class="border p-2" x-text="item.address"></td>
+                        <td class="border p-2 cursor-pointer" x-on:click="updateDataForm(item)">Update</td>
+                        <td class="border p-2 cursor-pointer" x-on:click="del(item.id)">Delete</td>
+                    </tr>
+                </template>
+            </tbody>
+        </table>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@2.8.2/dist/alpine.min.js" defer></script>
+    <script>
+        function app() {
+            return {
+                form: {
+                    name: '',
+                    email: '',
+                    phone: '',
+                    address: '',
+                },
+                data: [], // Assuming you have an array to store the data
+                updateKey: null,
+
+                mounted() {
+                    this.loadData();
+                },
+
+                submitData() {
+                    // Add code to connect to IndexedDB and add data here
+                    // Example code for using IndexedDB:
+                    const dbPromise = indexedDB.open('YourDatabaseName', 1);
+
+                    dbPromise.onupgradeneeded = (event) => {
+                        const db = event.target.result;
+                        const objectStore = db.createObjectStore('yourObjectStoreName', { keyPath: 'id', autoIncrement: true });
+                        objectStore.createIndex('name', 'name', { unique: false });
+                        objectStore.createIndex('email', 'email', { unique: false });
+                        objectStore.createIndex('phone', 'phone', { unique: false });
+                        objectStore.createIndex('address', 'address', { unique: false });
+                    };
+
+                    dbPromise.onsuccess = (event) => {
+                        const db = event.target.result;
+                        const transaction = db.transaction('yourObjectStoreName', 'readwrite');
+                        const objectStore = transaction.objectStore('yourObjectStoreName');
+
+                        if (this.updateKey !== null) {
+                            // Update existing data
+                            const request = objectStore.put({ id: this.updateKey, ...this.form });
+                            request.onsuccess = () => {
+                                // Update your data array or perform any other necessary actions
+                                this.loadData(); // Load data after updating
+                            };
+                        } else {
+                            // Add new data
+                            const request = objectStore.add({ ...this.form });
+                            request.onsuccess = () => {
+                                // Update your data array or perform any other necessary actions
+                                this.loadData(); // Load data after adding
+                            };
+                        }
+
+                        transaction.oncomplete = () => {
+                            // Close the database connection
+                            db.close();
+                        };
+                    };
+                },
+
+                loadData() {
+                    // Add code to load data from IndexedDB and update the 'data' array
+                    const dbPromise = indexedDB.open('YourDatabaseName', 1);
+
+                    dbPromise.onsuccess = (event) => {
+                        const db = event.target.result;
+                        const transaction = db.transaction('yourObjectStoreName', 'readonly');
+                        const objectStore = transaction.objectStore('yourObjectStoreName');
+                        const getAllRequest = objectStore.getAll();
+
+                        getAllRequest.onsuccess = () => {
+                            this.data = getAllRequest.result;
+                        };
+
+                        transaction.oncomplete = () => {
+                            // Close the database connection
+                            db.close();
+                        };
+                    };
+                },
+
+                deleteData(id) {
+                    // Add code to connect to IndexedDB and delete data here
+                    const dbPromise = indexedDB.open('YourDatabaseName', 1);
+
+                    dbPromise.onsuccess = (event) => {
+                        const db = event.target.result;
+                        const transaction = db.transaction('yourObjectStoreName', 'readwrite');
+                        const objectStore = transaction.objectStore('yourObjectStoreName');
+                        const deleteRequest = objectStore.delete(id);
+
+                        deleteRequest.onsuccess = () => {
+                            // Log to the console or perform any other necessary actions
+                            console.log(`Data with ID ${id} deleted successfully.`);
+                            this.loadData(); // Refresh data after deleting
+                        };
+
+                        transaction.oncomplete = () => {
+                            // Close the database connection
+                            db.close();
+                        };
+                    };
+                },
+
+
+
+
+                updateDataForm(item) {
+                    // Set the form values based on the selected item
+                    this.form.name = item.name;
+                    this.form.email = item.email;
+                    this.form.phone = item.phone;
+                    this.form.address = item.address;
+
+                    // Prompt the user to update the values
+                    this.showUpdatePrompt();
+                },
+
+                showUpdatePrompt() {
+                    // Store a reference to this.form to avoid potential issues with 'this' inside prompt callbacks
+                    const formData = this.form;
+
+                    // Use prompt to show a dialog for updating values
+                    const updatedName = prompt("Enter name", formData.name);
+                    const updatedEmail = prompt("Enter email", formData.email);
+                    const updatedPhone = prompt("Enter phone", formData.phone);
+                    const updatedAddress = prompt("Enter address", formData.address);
+
+                    // Update form values if the user provided new values
+                    if (updatedName !== null) {
+                        formData.name = updatedName;
+                    }
+
+                    if (updatedEmail !== null) {
+                        formData.email = updatedEmail;
+                    }
+
+                    if (updatedPhone !== null) {
+                        formData.phone = updatedPhone;
+                    }
+
+                    if (updatedAddress !== null) {
+                        formData.address = updatedAddress;
+                    }
+
+                    // Now, you can proceed with the updateData logic if needed
+                    this.updateData();
+                },
+
+
+
+
+
+
+
+
+                del(id) {
+                    // Call the deleteData method when the delete button is clicked
+                    this.deleteData(id);
+                },
+
+
+
+                // Other methods like updateData and update go here
+            };
+        }
+    </script>
+
+
+</body>
+
+</html>
