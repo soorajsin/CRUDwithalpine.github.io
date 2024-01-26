@@ -81,6 +81,12 @@
 
 
                 submitData() {
+
+                    if (!this.form.name || !this.form.email || !this.form.phone || !this.form.address) {
+                        alert("Please enter all fields");
+                        return;
+                    }
+
                     // Add code to connect to IndexedDB and add data here
                     // Example code for using IndexedDB:
                     const dbPromise = indexedDB.open('YourDatabaseName', 1);
