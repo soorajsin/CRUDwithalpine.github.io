@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
 </head>
 
-<body class="bg-gray-100">
+<body class="bg-gray-100" x-data="app()" x-init="loadData">
     <div class="container mx-auto p-8">
         <form x-on:submit.prevent="submitData">
             <div class="flex space-x-4">
@@ -42,7 +42,9 @@
                         <td class="border p-2" x-text="item.email"></td>
                         <td class="border p-2" x-text="item.phone"></td>
                         <td class="border p-2" x-text="item.address"></td>
-                        <td class="border p-2 cursor-pointer" x-on:click="updateDataForm(item)">Update</td>
+                        <td class="border p-2 cursor-pointer" x-on:click="Up(item.id)">Update</td>
+                        <!-- <button type="button" x-show="updateKey !== null" x-on:click="Up" -->
+                        <!-- class="bg-yellow-500 text-white px-4 py-2 rounded">Update Data</button> -->
                         <td class="border p-2 cursor-pointer" x-on:click="del(item.id)">Delete</td>
                     </tr>
                 </template>
@@ -53,6 +55,7 @@
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@2.8.2/dist/alpine.min.js" defer></script>
     <script>
         function app() {
+
             return {
                 form: {
                     name: '',
@@ -63,9 +66,6 @@
                 data: [], // Assuming you have an array to store the data
                 updateKey: null,
 
-                mounted() {
-                    this.loadData();
-                },
 
                 submitData() {
                     // Add code to connect to IndexedDB and add data here
@@ -91,7 +91,9 @@
                             const request = objectStore.put({ id: this.updateKey, ...this.form });
                             request.onsuccess = () => {
                                 // Update your data array or perform any other necessary actions
-                                this.loadData(); // Load data after updating
+                                this.loadData();    // Load data after updating
+                                // alert("Data added succussfully");
+                                // location.reload();
                             };
                         } else {
                             // Add new data
@@ -99,6 +101,8 @@
                             request.onsuccess = () => {
                                 // Update your data array or perform any other necessary actions
                                 this.loadData(); // Load data after adding
+                                alert("Data added succussfully");
+                                // location.reload();
                             };
                         }
 
@@ -109,7 +113,82 @@
                     };
                 },
 
+
+                updateDataForm() {
+                    // Ensure there is an updateKey
+                    if (this.updateKey !== null) {
+                        // Open the IndexedDB
+                        const dbPromise = indexedDB.open("YourDatabaseName", 1);
+
+                        dbPromise.onsuccess = (event) => {
+                            const db = event.target.result;
+
+                            // Start a transaction
+                            const transaction = db.transaction('yourObjectStoreName', 'readwrite');
+                            const objectStore = transaction.objectStore("yourObjectStoreName");
+
+                            // Find the item to update in the data array based on the updateKey
+                            const itemToUpdate = this.data.find(item => item.id === this.updateKey);
+
+                            // Update the item in the IndexedDB
+                            const updateRequest = objectStore.put({
+                                id: this.updateKey,
+                                name: this.form.name,
+                                email: this.form.email,
+                                phone: this.form.phone,
+                                address: this.form.address
+                            });
+
+                            updateRequest.onsuccess = () => {
+                                console.log("Data updated successfully in IndexedDB");
+                                this.loadData(); // Refresh data after updating
+                                alert("Update successfully done");
+                            };
+
+                            updateRequest.onerror = (error) => {
+                                console.error("Error updating data in IndexedDB", error);
+                            };
+
+                            // Commit the transaction
+                            transaction.oncomplete = () => {
+                                db.close();
+                            };
+                        };
+
+                        dbPromise.onerror = (event) => {
+                            console.error("Error opening IndexedDB", event.target.error);
+                        };
+                    }
+                },
+
+                Up(id) {
+                    // Set the updateKey and populate the form for editing
+                    this.updateKey = id;
+                    console.log(id);
+
+
+                    this.form = {
+                        name: "",
+                        email: "",
+                        phone: "",
+                        address: ""
+                    }
+                    // updateDataForm();
+
+                },
+
+
+
+
+                mounted() {
+                    console.log('Mounted lifecycle hook is called');
+                    this.loadData();
+                },
+
+
+
                 loadData() {
+                    console.log('Attempting to load data from IndexedDB');
                     // Add code to load data from IndexedDB and update the 'data' array
                     const dbPromise = indexedDB.open('YourDatabaseName', 1);
 
@@ -120,6 +199,7 @@
                         const getAllRequest = objectStore.getAll();
 
                         getAllRequest.onsuccess = () => {
+                            console.log('Data retrieved successfully:', getAllRequest.result);
                             this.data = getAllRequest.result;
                         };
 
@@ -128,6 +208,10 @@
                             db.close();
                         };
                     };
+
+                    dbPromise.onerror = (e) => {
+                        console.error('Error opening IndexedDB', e.target.error);
+                    }
                 },
 
                 deleteData(id) {
@@ -153,58 +237,6 @@
                     };
                 },
 
-
-
-
-                updateDataForm(item) {
-                    // Set the form values based on the selected item
-                    this.form.name = item.name;
-                    this.form.email = item.email;
-                    this.form.phone = item.phone;
-                    this.form.address = item.address;
-
-                    // Prompt the user to update the values
-                    this.showUpdatePrompt();
-                },
-
-                showUpdatePrompt() {
-                    // Store a reference to this.form to avoid potential issues with 'this' inside prompt callbacks
-                    const formData = this.form;
-
-                    // Use prompt to show a dialog for updating values
-                    const updatedName = prompt("Enter name", formData.name);
-                    const updatedEmail = prompt("Enter email", formData.email);
-                    const updatedPhone = prompt("Enter phone", formData.phone);
-                    const updatedAddress = prompt("Enter address", formData.address);
-
-                    // Update form values if the user provided new values
-                    if (updatedName !== null) {
-                        formData.name = updatedName;
-                    }
-
-                    if (updatedEmail !== null) {
-                        formData.email = updatedEmail;
-                    }
-
-                    if (updatedPhone !== null) {
-                        formData.phone = updatedPhone;
-                    }
-
-                    if (updatedAddress !== null) {
-                        formData.address = updatedAddress;
-                    }
-
-                    // Now, you can proceed with the updateData logic if needed
-                    this.updateData();
-                },
-
-
-
-
-
-
-
-
                 del(id) {
                     // Call the deleteData method when the delete button is clicked
                     this.deleteData(id);
@@ -212,7 +244,6 @@
 
 
 
-                // Other methods like updateData and update go here
             };
         }
     </script>
